@@ -86,6 +86,7 @@ enum Action {
     Cancel(JobId),
     Retry(JobId),
     Remove(JobId),
+    UpdateYtDlp,
 }
 
 pub fn queue_panel(app: &mut App, ui: &mut egui::Ui) {
@@ -141,6 +142,10 @@ pub fn queue_panel(app: &mut App, ui: &mut egui::Ui) {
                 }
             }
             Action::Remove(id) => app.jobs.retain(|j| j.spec.id != id),
+            Action::UpdateYtDlp => {
+                app.backend.send(Request::UpdateYtDlp);
+                app.show_tools = true;
+            }
         }
     }
 }
@@ -181,6 +186,12 @@ fn job_row(
                         .clicked()
                 {
                     job.show_details = !job.show_details;
+                }
+                if let JobState::Failed(err) = &job.state
+                    && err.suggests_update()
+                    && ui.small_button("Update yt-dlp").clicked()
+                {
+                    actions.push(Action::UpdateYtDlp);
                 }
             });
             if job.state.is_active() {

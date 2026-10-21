@@ -212,6 +212,11 @@ fn main() {
             }
         }
         Some("download") => download(&backend, &args[1..]),
+        Some("toast") => {
+            let r = ytlocal::notify::toast("YtLocal test", "Downloads finished: 3 files saved");
+            println!("toast: {r:?}");
+            r.is_ok()
+        }
         Some(other) => panic!("unknown command {other}"),
     };
     std::process::exit(if ok { 0 } else { 1 });

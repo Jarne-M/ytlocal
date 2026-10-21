@@ -322,7 +322,9 @@ fn handle_request(req: Request, sink: &EventSink, shared: &Arc<Shared>, queue: &
             });
         }
         Request::Toast { title, body } => {
-            tokio::task::spawn_blocking(move || crate::notify::toast(&title, &body));
+            tokio::task::spawn_blocking(move || {
+                let _ = crate::notify::toast(&title, &body);
+            });
         }
         Request::SaveConfig(c) => {
             let _ = shared.saves.send(SaveJob::Config(c));

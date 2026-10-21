@@ -269,6 +269,7 @@ pub fn input_section(app: &mut App, ui: &mut egui::Ui) {
     let mut remove = None;
     let mut fetch_playlist = None;
     let thumbs = &mut app.thumbs;
+    let backend = &app.backend;
     for (idx, item) in app.input.items.iter_mut().enumerate() {
         egui::Frame::group(ui.style()).show(ui, |ui| {
             ui.set_width(ui.available_width());
@@ -311,6 +312,9 @@ pub fn input_section(app: &mut App, ui: &mut egui::Ui) {
                             ui.colored_label(egui::Color32::from_rgb(230, 110, 90), &e.message);
                             if let Some(h) = &e.hint {
                                 ui.label(egui::RichText::new(h).weak());
+                            }
+                            if e.suggests_update() && ui.small_button("Update yt-dlp").clicked() {
+                                backend.send(Request::UpdateYtDlp);
                             }
                             ui.label(egui::RichText::new(item.key()).weak().small());
                         }
