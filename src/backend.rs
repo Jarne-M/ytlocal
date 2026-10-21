@@ -121,7 +121,11 @@ async fn saver(mut rx: mpsc::UnboundedReceiver<SaveJob>, sink: EventSink) {
 
 enum Msg {
     Ui(Request),
-    JobDone { id: JobId, ok: bool },
+    /// `ok`: `Some(true)` done/skipped, `Some(false)` failed, `None` cancelled.
+    JobDone {
+        id: JobId,
+        ok: Option<bool>,
+    },
 }
 
 pub struct Backend {
@@ -188,16 +192,17 @@ async fn run(
     shared: Arc<Shared>,
     mut queue: Scheduler,
 ) {
+    // Finished since the queue was last idle; cancelled jobs aren't counted.
     let (mut done, mut failed) = (0usize, 0usize);
     while let Some(msg) = rx.recv().await {
         match msg {
             Msg::Ui(req) => handle_request(req, &sink, &shared, &mut queue),
             Msg::JobDone { id, ok } => {
                 queue.finished(id);
-                if ok {
-                    done += 1;
-                } else {
-                    failed += 1;
+                match ok {
+                    Some(true) => done += 1,
+                    Some(false) => failed += 1,
+                    None => {}
                 }
             }
         }
@@ -210,13 +215,19 @@ async fn run(
                 let s = sink.clone();
                 let report = move |event| s.send(Event::Job { id, event });
                 let state = runner::run(&spec, &tools, &token, &report).await;
-                let ok = matches!(state, JobState::Done(_) | JobState::Skipped(_));
+                let ok = match state {
+                    JobState::Done(_) | JobState::Skipped(_) => Some(true),
+                    JobState::Cancelled => None,
+                    _ => Some(false),
+                };
                 report(JobEvent::State(state));
                 let _ = tx.send(Msg::JobDone { id, ok });
             });
         }
-        if queue.is_idle() && done + failed > 0 {
-            sink.send(Event::QueueIdle { done, failed });
+        if queue.is_idle() {
+            if done + failed > 0 {
+                sink.send(Event::QueueIdle { done, failed });
+            }
             (done, failed) = (0, 0);
         }
     }

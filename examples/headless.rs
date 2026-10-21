@@ -141,6 +141,9 @@ fn download(backend: &Backend, args: &[String]) -> bool {
                 if state.is_finished() {
                     finished += 1;
                     all_ok &= matches!(state, JobState::Done(_) | JobState::Skipped(_));
+                    if finished >= n {
+                        break;
+                    }
                 }
             }
             Event::Job {

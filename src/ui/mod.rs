@@ -235,7 +235,7 @@ impl App {
             ),
             (None, _) => (
                 "Downloads finished".to_string(),
-                format!("{done} saved, {failed} failed or cancelled"),
+                format!("{done} saved, {failed} failed"),
             ),
         };
         let kind = if failed == 0 {

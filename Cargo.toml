@@ -29,3 +29,9 @@ windows-sys = { version = "0.61.2", features = ["Win32_Foundation", "Win32_Syste
 
 [dev-dependencies]
 egui_kittest = { version = "0.37", features = ["eframe", "snapshot", "wgpu"] }
+
+[profile.release]
+strip = true
+lto = "thin"
+codegen-units = 4
+
