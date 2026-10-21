@@ -16,12 +16,20 @@ pub fn bin_dir() -> PathBuf {
     app_data_dir().join("bin")
 }
 
+/// Where config.json and history.json live. `YTLOCAL_DATA_DIR` overrides it
+/// (used by tests so they never touch the real settings).
+fn settings_dir() -> PathBuf {
+    std::env::var_os("YTLOCAL_DATA_DIR")
+        .map(PathBuf::from)
+        .unwrap_or_else(app_data_dir)
+}
+
 pub fn config_path() -> PathBuf {
-    app_data_dir().join("config.json")
+    settings_dir().join("config.json")
 }
 
 pub fn history_path() -> PathBuf {
-    app_data_dir().join("history.json")
+    settings_dir().join("history.json")
 }
 
 pub fn temp_root() -> PathBuf {

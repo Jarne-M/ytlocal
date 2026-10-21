@@ -75,6 +75,7 @@ fn download(backend: &Backend, args: &[String]) -> bool {
             "--no-meta" => options.embed_metadata = false,
             "--h264-any" => options.prefer_h264 = false,
             "--skip" => policy = ConflictPolicy::Skip,
+            "--rate" => options.rate_limit = Some(it.next().unwrap().parse().unwrap()),
             "--album" => album = it.next().cloned(),
             "--trim" => {
                 let (s, e) = it.next().unwrap().split_once('-').unwrap();

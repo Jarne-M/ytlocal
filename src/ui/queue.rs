@@ -125,7 +125,7 @@ pub fn queue_panel(app: &mut App, ui: &mut egui::Ui) {
     egui::ScrollArea::vertical()
         .auto_shrink([false, false])
         .show(ui, |ui| {
-            for job in app.jobs.iter_mut().rev() {
+            for job in app.jobs.iter_mut() {
                 job_row(ui, job, &mut actions, &mut app.thumbs);
                 ui.separator();
             }

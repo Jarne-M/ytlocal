@@ -54,10 +54,7 @@ pub fn sanitize_component(name: &str) -> String {
         })
         .collect();
     // Trailing dots and spaces are silently dropped by Windows; leading spaces are confusing.
-    out = out
-        .trim_start()
-        .trim_end_matches(['.', ' '])
-        .to_string();
+    out = out.trim_start().trim_end_matches(['.', ' ']).to_string();
     if out.is_empty() {
         out = "download".to_string();
     }

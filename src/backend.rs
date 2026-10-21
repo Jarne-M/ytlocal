@@ -7,6 +7,7 @@ use std::sync::{Arc, RwLock};
 use tokio::sync::{Semaphore, mpsc};
 
 use crate::binaries::{self, Package, ToolReport, download};
+use crate::config::{Config, history::History};
 use crate::queue::job::{JobEvent, JobId, JobSpec, JobState};
 use crate::queue::{Scheduler, runner};
 use crate::ytdlp::{self, errors::UserError, metadata::Preview};
@@ -26,6 +27,16 @@ pub enum Request {
         playlist: bool,
     },
     Thumbnail(String),
+    /// Read the clipboard; `auto` marks a focus-triggered check.
+    ReadClipboard {
+        auto: bool,
+    },
+    Toast {
+        title: String,
+        body: String,
+    },
+    SaveConfig(Box<Config>),
+    SaveHistory(History),
 }
 
 #[derive(Debug)]
@@ -56,6 +67,17 @@ pub enum Event {
         url: String,
         bytes: Option<Arc<[u8]>>,
     },
+    Clipboard {
+        text: Option<String>,
+        auto: bool,
+    },
+    /// Saving settings or history failed.
+    SaveFailed(String),
+}
+
+enum SaveJob {
+    Config(Box<Config>),
+    History(History),
 }
 
 /// Sends events to the UI and asks egui to repaint.
@@ -80,6 +102,21 @@ struct Shared {
     http: reqwest::Client,
     previews: Semaphore,
     thumbnails: Semaphore,
+    /// Saves go through one task so they're written in order.
+    saves: mpsc::UnboundedSender<SaveJob>,
+}
+
+async fn saver(mut rx: mpsc::UnboundedReceiver<SaveJob>, sink: EventSink) {
+    while let Some(job) = rx.recv().await {
+        let result = tokio::task::spawn_blocking(move || match job {
+            SaveJob::Config(c) => c.save().map_err(|e| format!("Couldn't save settings: {e}")),
+            SaveJob::History(h) => h.save().map_err(|e| format!("Couldn't save history: {e}")),
+        })
+        .await;
+        if let Ok(Err(e)) = result {
+            sink.send(Event::SaveFailed(e));
+        }
+    }
 }
 
 enum Msg {
@@ -102,12 +139,15 @@ impl Backend {
         let (tx, rx) = mpsc::unbounded_channel();
         let (etx, events) = std::sync::mpsc::channel();
         let sink = EventSink { tx: etx, repaint };
+        let (saves, saves_rx) = mpsc::unbounded_channel();
         let shared = Arc::new(Shared {
             tools: RwLock::new(ToolReport::default()),
             http: download::http_client(),
             previews: Semaphore::new(3),
             thumbnails: Semaphore::new(6),
+            saves,
         });
+        rt.spawn(saver(saves_rx, sink.clone()));
         rt.spawn(runner::clean_stale_work_dirs());
         rt.spawn(run(
             rx,
@@ -271,6 +311,24 @@ fn handle_request(req: Request, sink: &EventSink, shared: &Arc<Shared>, queue: &
                     bytes: bytes.map(|b| Arc::from(b.as_ref())),
                 });
             });
+        }
+        Request::ReadClipboard { auto } => {
+            let sink = sink.clone();
+            tokio::task::spawn_blocking(move || {
+                let text = arboard::Clipboard::new()
+                    .and_then(|mut c| c.get_text())
+                    .ok();
+                sink.send(Event::Clipboard { text, auto });
+            });
+        }
+        Request::Toast { title, body } => {
+            tokio::task::spawn_blocking(move || crate::notify::toast(&title, &body));
+        }
+        Request::SaveConfig(c) => {
+            let _ = shared.saves.send(SaveJob::Config(c));
+        }
+        Request::SaveHistory(h) => {
+            let _ = shared.saves.send(SaveJob::History(h));
         }
     }
 }
