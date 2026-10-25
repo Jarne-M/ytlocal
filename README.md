@@ -7,6 +7,16 @@ Everything runs on your machine: no accounts, no cloud, no telemetry, no ads.
 For personal use: download things you're allowed to keep offline, and respect
 the creator's license and YouTube's terms.
 
+## Download
+
+Get the newest `YtLocal.exe` (or the zip) from the **[Releases page](../../releases/latest)**
+and double-click it. You don't need to install anything. On first start, click **Download** next
+to yt-dlp, FFmpeg and Deno in the Tools panel (once, about a minute). If Windows says "Windows
+protected your PC", click *More info → Run anyway*; the exe isn't code-signed.
+
+The version is shown at the top of the window; compare it with the latest release to see
+whether there's a newer one.
+
 ## Features
 
 - Paste one or more links (videos, Shorts, `youtu.be`, `music.youtube.com`, playlists), or
@@ -32,13 +42,34 @@ the creator's license and YouTube's terms.
 
 ## Build
 
-Requires Rust (the GNU toolchain works; MSVC should too). This repo uses the shared portable toolchain
-in `..\.toolchain`:
+Install Rust from [rustup.rs](https://rustup.rs) (MSVC or GNU toolchain), then:
 
 ```powershell
-. .\env.ps1                 # puts cargo/rustc/mingw/git from ..\.toolchain on PATH
 cargo build --release       # -> target\release\ytlocal.exe (single exe, ~17 MB)
+cargo run                   # or run a debug build directly
 ```
+
+`env.ps1` is only for a portable toolchain in `..\.toolchain` (no system-wide Rust).
+Dot-source it first (`. .\env.ps1`) if that's your setup.
+
+## Contributing
+
+1. Fork the repo (or, as a collaborator, create a branch), make your change, and run
+   `cargo test` and `cargo clippy --all-targets`.
+2. Open a pull request. GitHub Actions builds and tests it on Windows automatically.
+
+The [Architecture](#architecture) section below shows where things live.
+
+## Releasing a new version
+
+1. Bump `version` in `Cargo.toml` (e.g. `0.2.0`) and commit.
+2. Tag and push:
+   ```powershell
+   git tag v0.2.0
+   git push origin main --tags
+   ```
+3. GitHub Actions builds the exe and publishes a Release with `YtLocal.exe` and
+   `YtLocal-windows.zip`. The Releases page always shows the newest one.
 
 ## First run
 

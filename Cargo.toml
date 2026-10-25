@@ -2,6 +2,8 @@
 name = "ytlocal"
 version = "0.1.0"
 edition = "2024"
+description = "Local YouTube to MP3/MP4 converter for Windows (wraps yt-dlp and ffmpeg)"
+license = "MIT"
 
 [dependencies]
 anyhow = "1.0.104"

@@ -1,0 +1,19 @@
+YtLocal - YouTube to MP3/MP4 converter (Windows)
+================================================
+
+1. Unzip this folder anywhere (for example your Desktop).
+2. Double-click YtLocal.exe.
+   - If Windows says "Windows protected your PC": click "More info", then "Run anyway".
+     (The app isn't signed by a company, so Windows warns about it.)
+3. The first time, the Tools panel opens. Click "Download" next to yt-dlp, FFmpeg
+   and Deno. This takes a minute, and only happens once.
+4. Paste YouTube links, click "Fetch info", pick MP3 or MP4, and click "Download".
+   Files go to your Music folder (audio) or Videos folder (video). You can change
+   that with "Change...".
+
+Tips
+- If downloads start failing, click "yt-dlp ..." at the top right, then "Update yt-dlp".
+  YouTube changes often.
+- Private playlists can't be downloaded. Set them to Unlisted in YouTube first.
+
+Everything runs on your own PC: no account, no ads, nothing is uploaded.

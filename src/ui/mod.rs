@@ -391,7 +391,14 @@ impl App {
     fn header(&mut self, ui: &mut egui::Ui) {
         ui.horizontal(|ui| {
             ui.heading(egui::RichText::new("YtLocal").strong());
-            ui.label(egui::RichText::new("YouTube to MP3/MP4, all local").weak());
+            ui.label(
+                egui::RichText::new(concat!(
+                    "v",
+                    env!("CARGO_PKG_VERSION"),
+                    "  ·  YouTube to MP3/MP4, all local"
+                ))
+                .weak(),
+            );
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 ui.toggle_value(&mut self.show_settings, "⚙ Settings");
                 let tools_label = match &self.tools {

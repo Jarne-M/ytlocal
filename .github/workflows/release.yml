@@ -1,0 +1,55 @@
+# Builds YtLocal on Windows. Every push/PR is checked; pushing a tag like
+# v0.2.0 also publishes a GitHub Release with YtLocal.exe and a zip.
+name: Build
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        run: rustup toolchain install stable --profile minimal --component clippy
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Unit tests
+        run: cargo test --lib
+
+      - name: Clippy
+        run: cargo clippy --lib --bins -- -D warnings
+
+      - name: Build release exe
+        run: cargo build --release
+
+      - name: Package
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force pkg | Out-Null
+          Copy-Item target/release/ytlocal.exe pkg/YtLocal.exe
+          Copy-Item "packaging/Read me.txt" pkg/
+          Compress-Archive -Path pkg/* -DestinationPath YtLocal-windows.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: YtLocal-windows
+          path: pkg/
+
+      - name: Publish release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            pkg/YtLocal.exe
+            YtLocal-windows.zip
+          generate_release_notes: true
