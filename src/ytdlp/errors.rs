@@ -68,6 +68,20 @@ const RULES: &[Rule] = &[
         message: "The disk is full.",
         hint: Some("Free up space or choose another output folder."),
     },
+    // Signed out, YouTube reports private playlists as non-existent. Must come
+    // before the generic "does not exist" video rule.
+    Rule {
+        needles: &[
+            "playlist does not exist",
+            "this playlist is private",
+            "playlist is private",
+            "playlist is unavailable",
+        ],
+        message: "This playlist is private (or doesn't exist). YouTube only shows private playlists to their owner, and YtLocal doesn't sign in.",
+        hint: Some(
+            "In YouTube, set the playlist's visibility to Unlisted, then try again. Or pick \"This video\".",
+        ),
+    },
     Rule {
         needles: &["private video"],
         message: "This video is private.",
@@ -322,6 +336,17 @@ mod tests {
         let e = c(&["ERROR: unable to download video data: HTTP Error 403: Forbidden"]);
         assert!(e.suggests_update());
         assert!(e.detail.contains("403"));
+    }
+
+    #[test]
+    fn private_playlist_is_not_called_a_video() {
+        let e = c(&[
+            "WARNING: [youtube:tab] YouTube said: The playlist does not exist.",
+            "ERROR: [youtube:tab] PLy5RfAaAn0K_hy8aOWqQrkd39nJRiDtBi: YouTube said: The playlist does not exist.",
+        ]);
+        assert!(e.message.contains("playlist is private"), "{e:?}");
+        assert!(e.hint.as_deref().unwrap().contains("Unlisted"));
+        assert!(!e.suggests_update());
     }
 
     #[test]
