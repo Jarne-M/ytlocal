@@ -16,7 +16,7 @@ jobs:
   build:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install Rust
         run: rustup toolchain install stable --profile minimal --component clippy
@@ -40,7 +40,7 @@ jobs:
           Copy-Item "packaging/Read me.txt" pkg/
           Compress-Archive -Path pkg/* -DestinationPath YtLocal-windows.zip
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: YtLocal-windows
           path: pkg/
