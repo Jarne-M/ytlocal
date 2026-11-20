@@ -23,7 +23,8 @@ pub enum ConflictPolicy {
 pub struct JobSpec {
     pub id: JobId,
     pub url: String,
-    pub video_id: Option<String>,
+    /// Preview image shown in the queue.
+    pub thumbnail: Option<String>,
     pub title: String,
     pub channel: Option<String>,
     pub duration: Option<f64>,

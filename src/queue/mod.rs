@@ -101,7 +101,7 @@ mod tests {
         JobSpec {
             id,
             url: String::new(),
-            video_id: None,
+            thumbnail: None,
             title: String::new(),
             channel: None,
             duration: None,

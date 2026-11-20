@@ -257,7 +257,7 @@ impl App {
             return;
         };
         if auto {
-            let Some(link) = url::find_youtube_link(&text) else {
+            let Some(link) = url::find_link(&text) else {
                 return;
             };
             if self.last_clipboard_link.as_deref() == Some(link.as_str())
@@ -267,14 +267,14 @@ impl App {
             }
             self.last_clipboard_link = Some(link.clone());
             self.input.add_links(&link, &self.backend);
-            self.banner(
-                BannerKind::Info,
-                "YouTube link found in the clipboard and added.",
-            );
+            self.banner(BannerKind::Info, "Link found in the clipboard and added.");
         } else {
             let added = self.input.add_links(&text, &self.backend);
             if added == 0 && self.input.error.is_none() {
-                self.banner(BannerKind::Info, "No new YouTube links in the clipboard.");
+                self.banner(
+                    BannerKind::Info,
+                    "No new YouTube, Instagram or TikTok links in the clipboard.",
+                );
             }
         }
     }
@@ -395,7 +395,7 @@ impl App {
                 egui::RichText::new(concat!(
                     "v",
                     env!("CARGO_PKG_VERSION"),
-                    "  ·  YouTube to MP3/MP4, all local"
+                    "  ·  YouTube, Instagram & TikTok to MP3/MP4, all local"
                 ))
                 .weak(),
             );

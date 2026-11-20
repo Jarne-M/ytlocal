@@ -1,11 +1,11 @@
 # YtLocal
 
-A local YouTube → MP3/MP4 converter for Windows, written in Rust (eframe/egui).
+A local YouTube, Instagram Reels & TikTok → MP3/MP4 converter for Windows, written in Rust (eframe/egui).
 It drives [yt-dlp](https://github.com/yt-dlp/yt-dlp) and [ffmpeg](https://ffmpeg.org/) as child processes.
 Everything runs on your machine: no accounts, no cloud, no telemetry, no ads.
 
 For personal use: download things you're allowed to keep offline, and respect
-the creator's license and YouTube's terms.
+the creator's license and the terms of YouTube, Instagram and TikTok.
 
 ## Download
 
@@ -21,6 +21,13 @@ whether there's a newer one.
 
 - Paste one or more links (videos, Shorts, `youtu.be`, `music.youtube.com`, playlists), or
   start the app with links: `ytlocal.exe <link> <link>…`.
+- Instagram Reels and video posts (`instagram.com/reel/…`, `/reels/…`, `/p/…`, `/tv/…`) as audio or
+  video, with the same formats as YouTube. The first line of the caption becomes the title and file
+  name (yt-dlp's own title is just "Video by …"). Only public reels: YtLocal doesn't sign in, so
+  private reels and multi-item carousel posts aren't supported, and Instagram may rate-limit.
+- TikTok videos (`tiktok.com/@user/video/…`, short share links `vm.tiktok.com/…`, `vt.tiktok.com/…`,
+  `tiktok.com/t/…`) as audio or video, without the watermark. The caption becomes the title and file
+  name. Photo slideshows, profiles and lives aren't supported; some videos are blocked by region.
 - Preview before downloading: thumbnail, title, channel and duration. Playlists show every item
   with checkboxes (All / None). A watch link carrying `list=` lets you pick *this video* or the
   *whole playlist*. Private, age-restricted, region-locked, removed and live videos get a clear message.
@@ -160,8 +167,12 @@ src/
 
 ## Troubleshooting
 
-- **"YouTube refused the download (extractor error)" / HTTP 403**: click *Update yt-dlp*.
+- **"The site refused the download (extractor error)" / HTTP 403**: click *Update yt-dlp*.
   Installing deno also helps.
+- **Instagram "rate-limiting / asking to sign in"**: the reel is private, or Instagram blocks
+  signed-out requests for a while. Wait a few minutes; *Update yt-dlp* if it keeps happening.
+- **"This video has no sound"**: some reels have no audio track (signed out), so there's nothing to
+  save as MP3. Download as MP4 instead.
 - **Age-restricted videos**: need a signed-in account; YtLocal deliberately doesn't use one.
 - **No notification**: check Windows Focus Assist / Do Not Disturb. The in-app message always shows.
 - **"Best" quality is 1080p**: that's the fastest option (YouTube's own H.264 streams). For 1440p/4K,

@@ -98,7 +98,7 @@ pub fn settings_window(app: &mut App, ctx: &egui::Context) {
                     ui.label("Clipboard");
                     ui.checkbox(
                         &mut c.clipboard_watch,
-                        "Add YouTube links from the clipboard when the window gets focus",
+                        "Add YouTube/Instagram/TikTok links from the clipboard when the window gets focus",
                     );
                     ui.end_row();
 

@@ -42,6 +42,8 @@ impl Item {
             Link::Video { id } => id.clone(),
             Link::Playlist { list } => list.clone(),
             Link::VideoInPlaylist { id, list } => format!("{id}/{list}"),
+            Link::Instagram { code } => format!("Instagram {code}"),
+            Link::TikTok { id, .. } => format!("TikTok {id}"),
         }
     }
 
@@ -102,6 +104,13 @@ impl InputState {
                     Fetch::Idle,
                     self.request(backend, Link::playlist_url(list), true),
                 ),
+                Link::Instagram { code } => (
+                    self.request(backend, Link::instagram_url(code), false),
+                    Fetch::Idle,
+                ),
+                Link::TikTok { url, .. } => {
+                    (self.request(backend, url.clone(), false), Fetch::Idle)
+                }
             };
             self.items.push(Item {
                 link,
@@ -169,15 +178,16 @@ pub fn enqueue_ready(app: &mut App) {
     let mut specs: Vec<JobSpec> = Vec::new();
     let mut next_id = app.next_id;
     let mut new_spec = |url: String,
-                        id: &str,
+                        thumbnail: Option<String>,
                         title: &str,
                         channel: Option<String>,
                         duration,
-                        album: Option<String>| {
+                        album: Option<String>,
+                        template: String| {
         let spec = JobSpec {
             id: next_id,
             url,
-            video_id: Some(id.to_string()),
+            thumbnail,
             title: title.to_string(),
             channel,
             duration,
@@ -185,7 +195,7 @@ pub fn enqueue_ready(app: &mut App) {
             format,
             options: options.clone(),
             output_dir: output_dir.clone(),
-            template: app.config.template.clone(),
+            template,
             on_conflict: app.config.on_conflict,
         };
         next_id += 1;
@@ -195,24 +205,31 @@ pub fn enqueue_ready(app: &mut App) {
     app.input.items.retain(|item| {
         match item.current() {
             Fetch::Ready(Preview::Video(v)) => {
+                let template = if v.fixed_title {
+                    crate::ytdlp::command::with_fixed_title(&app.config.template, &v.title)
+                } else {
+                    app.config.template.clone()
+                };
                 specs.push(new_spec(
                     v.url.clone(),
-                    &v.id,
+                    v.thumbnail.clone(),
                     &v.title,
                     v.channel.clone(),
                     v.duration,
                     None,
+                    template,
                 ));
             }
             Fetch::Ready(Preview::Playlist(p)) => {
                 for (entry, _) in p.entries.iter().zip(&item.selected).filter(|(_, s)| **s) {
                     specs.push(new_spec(
                         entry.url(),
-                        &entry.id,
+                        Some(entry.thumbnail()),
                         &entry.title,
                         entry.channel.clone().or_else(|| p.channel.clone()),
                         entry.duration,
                         Some(p.title.clone()),
+                        app.config.template.clone(),
                     ));
                 }
             }
@@ -234,7 +251,7 @@ pub fn input_section(app: &mut App, ui: &mut egui::Ui) {
     ui.strong("Links");
     let edit = ui.add(
         egui::TextEdit::multiline(&mut app.input.text)
-            .hint_text("Paste YouTube video or playlist links, one per line")
+            .hint_text("Paste YouTube, Instagram reel or TikTok links, one per line")
             .desired_rows(3)
             .desired_width(f32::INFINITY),
     );
@@ -288,7 +305,7 @@ pub fn input_section(app: &mut App, ui: &mut egui::Ui) {
             }
             ui.horizontal(|ui| {
                 let thumb = match (&item.link, item.current()) {
-                    (_, Fetch::Ready(Preview::Video(v))) => Some(v.thumbnail.clone()),
+                    (_, Fetch::Ready(Preview::Video(v))) => v.thumbnail.clone(),
                     (_, Fetch::Ready(Preview::Playlist(p))) => {
                         p.entries.first().map(|e| e.thumbnail())
                     }

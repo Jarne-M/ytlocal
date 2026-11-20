@@ -93,7 +93,7 @@ fn download(backend: &Backend, args: &[String]) -> bool {
         .map(|(i, url)| JobSpec {
             id: i as u64 + 1,
             url: url.clone(),
-            video_id: None,
+            thumbnail: None,
             title: url.clone(),
             channel: None,
             duration: None,

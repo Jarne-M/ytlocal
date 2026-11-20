@@ -37,7 +37,7 @@ pub struct Config {
     pub on_conflict: ConflictPolicy,
     pub concurrency: usize,
     pub window_size: Option<[f32; 2]>,
-    /// Look for a YouTube link in the clipboard when the window gains focus.
+    /// Look for a YouTube/Instagram/TikTok link in the clipboard when the window gains focus.
     pub clipboard_watch: bool,
     pub notifications: bool,
 }

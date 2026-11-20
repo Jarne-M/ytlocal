@@ -450,7 +450,7 @@ mod tests {
         JobSpec {
             id: 1,
             url: "https://www.youtube.com/watch?v=dPZTh2NKTm4".into(),
-            video_id: None,
+            thumbnail: None,
             title: "t".into(),
             channel: None,
             duration: None,

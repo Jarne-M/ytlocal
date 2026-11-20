@@ -157,12 +157,7 @@ fn job_row(
     thumbs: &mut super::thumbs::Thumbs,
 ) {
     ui.horizontal(|ui| {
-        let thumb_url = job
-            .spec
-            .video_id
-            .as_deref()
-            .map(crate::ytdlp::url::Link::thumbnail_url);
-        thumbs.show(ui, thumb_url.as_deref(), egui::vec2(96.0, 54.0));
+        thumbs.show(ui, job.spec.thumbnail.as_deref(), egui::vec2(96.0, 54.0));
 
         ui.vertical(|ui| {
             ui.add(egui::Label::new(egui::RichText::new(&job.spec.title).strong()).truncate());

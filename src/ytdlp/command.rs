@@ -406,6 +406,14 @@ pub fn download_args(d: &DownloadArgs) -> Vec<String> {
     a
 }
 
+/// Replace `%(title)s` in an output template with a fixed, filename-safe
+/// title. Used for Instagram/TikTok, where yt-dlp's title is "Video by someone"
+/// or a caption cut off with "...", and the preview shows a cleaner one.
+pub fn with_fixed_title(template: &str, title: &str) -> String {
+    let safe = super::filename::sanitize_component(title).replace('%', "%%");
+    template.replace("%(title)s", &safe)
+}
+
 /// Metadata-only run: `-J` dumps one JSON document. Playlists are listed
 /// flat (no per-video requests), which is fast even for long playlists.
 pub fn preview_args(url: &str, playlist: bool, tools: &ToolPaths) -> Vec<String> {
@@ -640,6 +648,19 @@ mod tests {
             None,
         );
         assert!(!has(&args, "--write-subs"));
+    }
+
+    #[test]
+    fn fixed_title_template() {
+        assert_eq!(
+            with_fixed_title("%(title)s.%(ext)s", "100% sunset: day/night?"),
+            "100%% sunset_ day_night_.%(ext)s"
+        );
+        assert_eq!(
+            with_fixed_title("%(uploader)s - %(title)s.%(ext)s", "Hi"),
+            "%(uploader)s - Hi.%(ext)s"
+        );
+        assert_eq!(with_fixed_title("%(id)s.%(ext)s", "Hi"), "%(id)s.%(ext)s");
     }
 
     #[test]

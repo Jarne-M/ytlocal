@@ -10,8 +10,11 @@ pub struct VideoInfo {
     pub title: String,
     pub channel: Option<String>,
     pub duration: Option<f64>,
-    pub thumbnail: String,
+    pub thumbnail: Option<String>,
     pub url: String,
+    /// Instagram/TikTok: name the file after this preview title, because
+    /// yt-dlp's own title is useless ("Video by …") or cut off with "...".
+    pub fixed_title: bool,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -61,10 +64,81 @@ fn duration(v: &Value) -> Option<f64> {
 
 const UNAVAILABLE_TITLES: [&str; 3] = ["[Private video]", "[Deleted video]", "[Unavailable video]"];
 
+/// First caption line, shortened: Instagram's yt-dlp title is just "Video by
+/// someone", TikTok's is the whole caption cut off at a fixed length.
+fn caption_title(v: &Value) -> Option<String> {
+    let caption = str_field(v, &["description"])?;
+    let line = caption.lines().map(str::trim).find(|l| !l.is_empty())?;
+    const MAX: usize = 80;
+    Some(if line.chars().count() > MAX {
+        format!("{}…", line.chars().take(MAX).collect::<String>().trim_end())
+    } else {
+        line.to_string()
+    })
+}
+
+#[derive(Clone, Copy, PartialEq)]
+enum Social {
+    Instagram,
+    TikTok,
+}
+
+/// Instagram and TikTok: always a single video, with its own thumbnail and link.
+fn parse_social(v: &Value, site: Social) -> Result<Preview, String> {
+    if v.get("_type").and_then(Value::as_str) == Some("playlist")
+        || v.get("entries").is_some_and(Value::is_array)
+    {
+        return Err(match site {
+            Social::Instagram => "This Instagram post holds several photos/videos; YtLocal downloads single reels. Use a reel link.",
+            Social::TikTok => "This TikTok link holds several videos or photos; YtLocal downloads single videos. Use a link to one video.",
+        }
+        .into());
+    }
+    let id = str_field(v, &["id"]).ok_or("yt-dlp returned no video id")?;
+    let (channel, title) = match site {
+        Social::Instagram => {
+            let channel = str_field(v, &["channel", "uploader_id", "uploader"]);
+            let title = str_field(v, &["title"])
+                .filter(|t| !t.starts_with("Video by "))
+                .or_else(|| caption_title(v))
+                .or_else(|| channel.as_ref().map(|c| format!("Reel by {c}")));
+            (channel, title)
+        }
+        Social::TikTok => {
+            let channel = str_field(v, &["channel", "uploader", "creator"]);
+            let title = caption_title(v)
+                .or_else(|| str_field(v, &["title"]))
+                .or_else(|| channel.as_ref().map(|c| format!("TikTok by {c}")));
+            (channel, title)
+        }
+    };
+    let url = match site {
+        Social::Instagram => {
+            str_field(v, &["webpage_url"]).unwrap_or_else(|| Link::instagram_url(&id))
+        }
+        Social::TikTok => str_field(v, &["webpage_url"])
+            .unwrap_or_else(|| format!("https://www.tiktok.com/@/video/{id}")),
+    };
+    Ok(Preview::Video(VideoInfo {
+        title: title.unwrap_or_else(|| id.clone()),
+        channel,
+        duration: duration(v),
+        thumbnail: str_field(v, &["thumbnail"]),
+        url,
+        fixed_title: true,
+        id,
+    }))
+}
+
 /// Parse a `-J` document. Errors are user-facing messages.
 pub fn parse(json: &str) -> Result<Preview, String> {
     let v: Value = serde_json::from_str(json)
         .map_err(|_| "yt-dlp returned unreadable metadata".to_string())?;
+    match v.get("extractor_key").and_then(Value::as_str) {
+        Some(k) if k.starts_with("Instagram") => return parse_social(&v, Social::Instagram),
+        Some(k) if k.starts_with("TikTok") => return parse_social(&v, Social::TikTok),
+        _ => {}
+    }
     let kind = v.get("_type").and_then(Value::as_str).unwrap_or("video");
     if kind == "playlist" || v.get("entries").is_some_and(Value::is_array) {
         let entries = v
@@ -120,8 +194,9 @@ pub fn parse(json: &str) -> Result<Preview, String> {
         title: str_field(&v, &["title", "fulltitle"]).unwrap_or_else(|| id.clone()),
         channel: str_field(&v, &["channel", "uploader", "artist"]),
         duration: duration(&v),
-        thumbnail: Link::thumbnail_url(&id),
+        thumbnail: Some(Link::thumbnail_url(&id)),
         url: Link::video_url(&id),
+        fixed_title: false,
         id,
     }))
 }
@@ -152,7 +227,87 @@ mod tests {
         assert_eq!(v.channel.as_deref(), Some("Wikipedia"));
         assert_eq!(v.duration, Some(84.0));
         assert_eq!(v.url, "https://www.youtube.com/watch?v=dPZTh2NKTm4");
-        assert!(v.thumbnail.contains("dPZTh2NKTm4"));
+        assert!(v.thumbnail.unwrap().contains("dPZTh2NKTm4"));
+        assert!(!v.fixed_title);
+    }
+
+    #[test]
+    fn instagram_reel() {
+        let json = r#"{"id": "C8xYz12AbCd", "title": "Video by someone", "channel": "someone",
+            "uploader": "Some One", "description": "\n  Sunset at the beach 🌅 #summer\nsecond line",
+            "duration": 14.9, "thumbnail": "https://scontent.cdninstagram.com/v/t51/thumb.jpg?x=1",
+            "webpage_url": "https://www.instagram.com/p/C8xYz12AbCd/", "extractor_key": "Instagram"}"#;
+        let Ok(Preview::Video(v)) = parse(json) else {
+            panic!()
+        };
+        assert!(v.fixed_title);
+        assert_eq!(v.title, "Sunset at the beach 🌅 #summer");
+        assert_eq!(v.channel.as_deref(), Some("someone"));
+        assert_eq!(v.url, "https://www.instagram.com/p/C8xYz12AbCd/");
+        assert_eq!(
+            v.thumbnail.as_deref(),
+            Some("https://scontent.cdninstagram.com/v/t51/thumb.jpg?x=1")
+        );
+
+        // No caption: fall back to the uploader; no webpage_url: canonical link.
+        let json = r#"{"id": "C8xYz12AbCd", "title": "Video by someone", "channel": "someone",
+            "extractor_key": "Instagram"}"#;
+        let Ok(Preview::Video(v)) = parse(json) else {
+            panic!()
+        };
+        assert_eq!(v.title, "Reel by someone");
+        assert_eq!(v.url, "https://www.instagram.com/reel/C8xYz12AbCd/");
+        assert_eq!(v.thumbnail, None);
+
+        let long = format!(
+            r#"{{"id": "C8xYz12AbCd", "description": "{}", "extractor_key": "Instagram"}}"#,
+            "a".repeat(200)
+        );
+        let Ok(Preview::Video(v)) = parse(&long) else {
+            panic!()
+        };
+        assert_eq!(v.title.chars().count(), 81);
+    }
+
+    #[test]
+    fn instagram_carousel_is_rejected() {
+        let json = r#"{"_type": "playlist", "id": "C8xYz12AbCd", "extractor_key": "Instagram",
+            "entries": [{"id": "1"}, {"id": "2"}]}"#;
+        assert!(parse(json).unwrap_err().contains("several"));
+    }
+
+    #[test]
+    fn tiktok_video() {
+        let json = r#"{"id": "6742501081818877190", "extractor_key": "TikTok",
+            "title": "Tag 1 Friend reverse this Video and look what happens 🤩😱 @skyandtami ...",
+            "description": "Tag 1 Friend reverse this Video and look what happens 🤩😱 @skyandtami  are the Best 🤩 #patrox #sotiktok #viral",
+            "uploader": "patrox", "channel": "patroX", "duration": 27,
+            "thumbnail": "https://p16-common-sign.tiktokcdn-eu.com/x~tplv-tiktokx-origin.image?x-expires=1",
+            "webpage_url": "https://www.tiktok.com/@patroxofficial/video/6742501081818877190"}"#;
+        let Ok(Preview::Video(v)) = parse(json) else {
+            panic!()
+        };
+        assert!(v.fixed_title);
+        // From the caption, not yt-dlp's title that ends in "...".
+        assert_eq!(
+            v.title,
+            "Tag 1 Friend reverse this Video and look what happens 🤩😱 @skyandtami  are the Be…"
+        );
+        assert_eq!(v.channel.as_deref(), Some("patroX"));
+        assert_eq!(v.duration, Some(27.0));
+        assert_eq!(
+            v.url,
+            "https://www.tiktok.com/@patroxofficial/video/6742501081818877190"
+        );
+        assert!(v.thumbnail.unwrap().contains("tiktokcdn"));
+
+        let json =
+            r#"{"id": "6742501081818877190", "extractor_key": "TikTok", "uploader": "patrox"}"#;
+        let Ok(Preview::Video(v)) = parse(json) else {
+            panic!()
+        };
+        assert_eq!(v.title, "TikTok by patrox");
+        assert_eq!(v.url, "https://www.tiktok.com/@/video/6742501081818877190");
     }
 
     #[test]

@@ -104,6 +104,9 @@ const RULES: &[Rule] = &[
             "geo restrict",
             "geo-restrict",
             "blocked it in your country",
+            // TikTok
+            "ip address is blocked",
+            "not available in your region",
         ],
         message: "This video is blocked in your region.",
         hint: None,
@@ -146,6 +149,23 @@ const RULES: &[Rule] = &[
         hint: Some("Wait a while and try again. Try \"Update yt-dlp\" too."),
     },
     Rule {
+        needles: &["no video in this post"],
+        message: "This Instagram post has no video (only photos).",
+        hint: None,
+    },
+    Rule {
+        needles: &[
+            "rate-limit reached or login required",
+            "locked behind the login page",
+            "empty media response",
+            "instagram api is not granting access",
+        ],
+        message: "Instagram didn't hand out this reel: it's private, or Instagram is rate-limiting and asking to sign in. YtLocal doesn't sign in.",
+        hint: Some(
+            "Public reels usually work: wait a few minutes and try again. Try \"Update yt-dlp\" too.",
+        ),
+    },
+    Rule {
         needles: &[
             "getaddrinfo failed",
             "failed to resolve",
@@ -161,12 +181,12 @@ const RULES: &[Rule] = &[
             "unable to connect",
             "connectionerror",
         ],
-        message: "Couldn't reach YouTube. Check your internet connection.",
+        message: "Couldn't reach the site. Check your internet connection.",
         hint: None,
     },
     Rule {
         needles: &["is not a valid url", "unsupported url"],
-        message: "That link isn't a valid YouTube video or playlist.",
+        message: "That link isn't a valid video, reel or playlist.",
         hint: None,
     },
     Rule {
@@ -194,8 +214,14 @@ const RULES: &[Rule] = &[
             "po token",
             "sabr",
         ],
-        message: "YouTube refused the download (extractor error).",
+        message: "The site refused the download (extractor error).",
         hint: UPDATE,
+    },
+    // yt-dlp's ExtractAudio when the source has no audio track at all.
+    Rule {
+        needles: &["unable to obtain file audio codec"],
+        message: "This video has no sound, so there's no audio to save.",
+        hint: Some("Download it as MP4 instead."),
     },
     Rule {
         needles: &[
@@ -347,6 +373,30 @@ mod tests {
         assert!(e.message.contains("playlist is private"), "{e:?}");
         assert!(e.hint.as_deref().unwrap().contains("Unlisted"));
         assert!(!e.suggests_update());
+    }
+
+    #[test]
+    fn instagram_errors() {
+        let e = c(&[
+            "ERROR: [Instagram] C8xYz12AbCd: Requested content is not available, rate-limit reached or login required. Use --cookies, --cookies-from-browser, --username and --password, --netrc-cmd, or --netrc (instagram) to provide account credentials. See  https://github.com/yt-dlp/yt-dlp/wiki/FAQ#how-do-i-pass-cookies-to-yt-dlp  for how to manually pass cookies",
+        ]);
+        assert!(e.message.contains("Instagram"), "{e:?}");
+        assert!(e.suggests_update());
+        let e = c(&["ERROR: [Instagram] C8xYz12AbCd: There is no video in this post"]);
+        assert!(e.message.contains("no video"), "{e:?}");
+        let e = c(&[
+            "WARNING: [Instagram] aye83DjauH: No CSRF token set by Instagram API",
+            "ERROR: Postprocessing: WARNING: unable to obtain file audio codec with ffprobe",
+        ]);
+        assert!(e.message.contains("no sound"), "{e:?}");
+    }
+
+    #[test]
+    fn tiktok_errors() {
+        let e = c(&[
+            "ERROR: [TikTok] 6748451240264420610: Your IP address is blocked from accessing this post",
+        ]);
+        assert!(e.message.contains("region"), "{e:?}");
     }
 
     #[test]
