@@ -56,8 +56,9 @@ cargo build --release       # -> target\release\ytlocal.exe (single exe, ~17 MB)
 cargo run                   # or run a debug build directly
 ```
 
-`env.ps1` is only for a portable toolchain in `..\.toolchain` (no system-wide Rust).
-Dot-source it first (`. .\env.ps1`) if that's your setup.
+`env.ps1` and `build.cmd` are only for a portable toolchain in `..\.toolchain` (no system-wide
+Rust). With that setup, double-click `build.cmd` to get `target\release\ytlocal.exe` (close
+YtLocal first), or dot-source `. .\env.ps1` in a terminal before running cargo.
 
 ## Contributing
 
